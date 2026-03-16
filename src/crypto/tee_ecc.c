@@ -22,12 +22,18 @@
 static CYS_error_t tee_internal_ecc_genkey(cc3xx_ec_curve_id_t curve_id, uint8_t *privkey, size_t privkey_size)
 {
     size_t priv_key_len = 0;
+    /* Use aligned buffer for CC310 DMA */
+    uint32_t priv_buf[TEE_ECC_P256_PRIV_KEY_SIZE / sizeof(uint32_t)];
+
     NRF_CRYPTOCELL->ENABLE = 1;
-    cc3xx_err_t err = cc3xx_lowlevel_ecdsa_genkey(curve_id, (uint32_t *)privkey, privkey_size, &priv_key_len);
+    cc3xx_err_t err = cc3xx_lowlevel_ecdsa_genkey(curve_id, priv_buf, privkey_size, &priv_key_len);
+    NRF_CRYPTOCELL->ENABLE = 0;
+
     if (err != CC3XX_ERR_SUCCESS) {
         return tee_map_error_values(err);
     }
-    NRF_CRYPTOCELL->ENABLE = 0;
+
+    memcpy(privkey, priv_buf, privkey_size);
     return CYS_SUCCESS;
 }
 
@@ -36,6 +42,10 @@ static CYS_error_t tee_internal_ecc_derive(cc3xx_ec_curve_id_t curve_id, uint8_t
 {
     cc3xx_err_t err;
 
+    /* Copy privkey to aligned buffer for CC310 DMA */
+    uint32_t priv_buf[TEE_ECC_P256_PRIV_KEY_SIZE / sizeof(uint32_t)];
+    memcpy(priv_buf, privkey, privkey_size);
+
     size_t modulus_size = cc3xx_lowlevel_ec_get_modulus_size_from_curve(curve_id);
 
     uint32_t pubkey_x[modulus_size / sizeof(uint32_t)];
@@ -43,7 +53,7 @@ static CYS_error_t tee_internal_ecc_derive(cc3xx_ec_curve_id_t curve_id, uint8_t
     size_t pubkey_x_size, pubkey_y_size;
 
     NRF_CRYPTOCELL->ENABLE = 1;
-    err = cc3xx_lowlevel_ecdsa_getpub(curve_id, (uint32_t *)privkey, privkey_size, pubkey_x, sizeof(pubkey_x), &pubkey_x_size, pubkey_y, sizeof(pubkey_y), &pubkey_y_size);
+    err = cc3xx_lowlevel_ecdsa_getpub(curve_id, priv_buf, privkey_size, pubkey_x, sizeof(pubkey_x), &pubkey_x_size, pubkey_y, sizeof(pubkey_y), &pubkey_y_size);
     if (err != CC3XX_ERR_SUCCESS) {
         goto exit;
     }
@@ -141,6 +151,13 @@ CYS_error_t tee_prot_ecc_p256_derive(io_pack_in_t *in, size_t in_len, io_pack_ou
 
 static CYS_error_t tee_internal_ecdsa_sign(cc3xx_ec_curve_id_t curve_id, uint8_t * privkey, size_t privkey_size, uint8_t *hash, size_t hash_len, uint8_t *signature)
 {
+    /* Copy privkey and hash to aligned buffers for CC310 DMA */
+    uint32_t priv_buf[TEE_ECC_P256_PRIV_KEY_SIZE / sizeof(uint32_t)];
+    memcpy(priv_buf, privkey, privkey_size);
+
+    uint32_t hash_buf[TEE_ECC_P256_HASH_SIZE / sizeof(uint32_t)];
+    memcpy(hash_buf, hash, hash_len);
+
     size_t modulus_size = cc3xx_lowlevel_ec_get_modulus_size_from_curve(curve_id);
     uint32_t sig_r[modulus_size / sizeof(uint32_t)];
     uint32_t sig_s[modulus_size / sizeof(uint32_t)];
@@ -148,7 +165,7 @@ static CYS_error_t tee_internal_ecdsa_sign(cc3xx_ec_curve_id_t curve_id, uint8_t
 
     NRF_CRYPTOCELL->ENABLE = 1;
 
-    cc3xx_err_t err = cc3xx_lowlevel_ecdsa_sign(curve_id, (uint32_t *)privkey, privkey_size, (uint32_t *)hash, hash_len, sig_r, sizeof(sig_r), &sig_r_size, sig_s, sizeof(sig_s), &sig_s_size);
+    cc3xx_err_t err = cc3xx_lowlevel_ecdsa_sign(curve_id, priv_buf, privkey_size, hash_buf, hash_len, sig_r, sizeof(sig_r), &sig_r_size, sig_s, sizeof(sig_s), &sig_s_size);
 
     NRF_CRYPTOCELL->ENABLE = 0;
 
@@ -285,11 +302,15 @@ static CYS_error_t tee_internal_ecdsa_verify(cc3xx_ec_curve_id_t curve_id, uint8
     memcpy(sig_r, signature, sig_rs_len);
     memcpy(sig_s, &signature[sig_rs_len], sig_rs_len);
 
+    /* Copy hash to aligned buffer for CC310 DMA */
+    uint32_t hash_buf[TEE_ECC_P256_HASH_SIZE / sizeof(uint32_t)];
+    memcpy(hash_buf, hash, hash_len);
+
     NRF_CRYPTOCELL->ENABLE = 1;
     cc3xx_err_t err = cc3xx_lowlevel_ecdsa_verify(curve_id,
                                                   pk_x, pub_xy_len,
                                                   pk_y, pub_xy_len,
-                                                  (uint32_t *)hash, hash_len,
+                                                  hash_buf, hash_len,
                                                   sig_r, sig_rs_len,
                                                   sig_s, sig_rs_len);
     NRF_CRYPTOCELL->ENABLE = 0;
