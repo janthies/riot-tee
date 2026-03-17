@@ -28,6 +28,33 @@ set(CMSISDEVPATH        "${PROJECT_SOURCE_DIR}/3rd-party/CMSIS_5/Device/ARM/ARMC
 
 set(TARGET_DIR   "${PROJECT_SOURCE_DIR}/target/nrf9160")
 
+# Memory layout — passed from RIOT build system or use defaults
+if(NOT DEFINED TEE_FLASH_START)
+    set(TEE_FLASH_START 0x0)
+endif()
+if(NOT DEFINED TEE_FLASH_SIZE)
+    set(TEE_FLASH_SIZE 0x20000)
+endif()
+if(NOT DEFINED TEE_RAM_SIZE)
+    set(TEE_RAM_SIZE 0x16000)
+endif()
+if(NOT DEFINED FIRST_NS_FLASH_REGION)
+    math(EXPR FIRST_NS_FLASH_REGION "${TEE_FLASH_START} + ${TEE_FLASH_SIZE}" OUTPUT_FORMAT DECIMAL)
+    math(EXPR FIRST_NS_FLASH_REGION "${FIRST_NS_FLASH_REGION} / 0x8000")
+endif()
+if(NOT DEFINED FIRST_NS_RAM_REGION)
+    math(EXPR FIRST_NS_RAM_REGION "${TEE_RAM_SIZE} / 0x2000")
+endif()
+if(NOT DEFINED NSC_FLASH_REGION)
+    math(EXPR NSC_FLASH_REGION "${FIRST_NS_FLASH_REGION} - 1")
+endif()
+
+# Generate linker script from template
+configure_file(
+    "${PROJECT_SOURCE_DIR}/target/nrf9160/nrf9160.ld.in"
+    "${CMAKE_BINARY_DIR}/nrf9160.ld"
+    @ONLY
+)
 set(LINKER_SCRIPT       "${CMAKE_SOURCE_DIR}/ld/common.ld")
 set(NSC_LIB             "${CMAKE_BINARY_DIR}/nsc_lib.o")
 set(MAP_FILE            "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.map")
@@ -98,11 +125,14 @@ target_include_directories(${EXECUTABLE_NAME}
     ${NRFXPATH}/drivers/include
 )
 
-# Add compile definitions for NRFX
+# Add compile definitions for NRFX and memory layout
 target_compile_definitions(${EXECUTABLE_NAME}
     PUBLIC
     NRF9160_XXAA
     FLOAT_ABI_HARD
+    FIRST_NS_FLASH_REGION=${FIRST_NS_FLASH_REGION}
+    FIRST_NS_RAM_REGION=${FIRST_NS_RAM_REGION}
+    NSC_FLASH_REGION=${NSC_FLASH_REGION}
 )
 
 target_compile_options(${EXECUTABLE_NAME} PUBLIC
@@ -121,7 +151,7 @@ target_link_options(${EXECUTABLE_NAME}
     "-Wl,-Map=${MAP_FILE}"
     "--specs=nosys.specs"
     "-L${NRFXPATH}/mdk/"
-    "-L${PROJECT_SOURCE_DIR}/target/nrf9160/"
+    "-L${CMAKE_BINARY_DIR}/"
 )
 
 target_link_libraries(${EXECUTABLE_NAME}
