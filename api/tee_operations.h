@@ -22,4 +22,6 @@
 #define TEE_PROT_ECC_P256_SEAL      (0x29)
 #define TEE_PROT_ECC_P256_DERIVE    (0x30)
 
+#define TEE_ATTEST_GET_TOKEN        (0x40)
+
 #endif /* TEE_OPERATIONS_H */

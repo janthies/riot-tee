@@ -20,7 +20,9 @@ set(CRYPTOSERVICE_RIOT_LIBS ${CRYPTOSERVICE_PATH}/libs/RIOT)
 # set(NRFXPATH            "${DEPENDENCIES_PATH}/nrfx-src")
 # set(CMSISPATH           "${DEPENDENCIES_PATH}/cmsis_5-src/CMSIS")
 
-set(TFM_PATH            "~/work/repos/tf-m-github")
+if(NOT DEFINED TFM_PATH)
+    set(TFM_PATH "~/work/repos/tf-m-github")
+endif()
 set(CC3XXPATH           "${TFM_PATH}/platform/ext/target/arm/drivers/cc3xx")
 set(NRFXPATH            "${PROJECT_SOURCE_DIR}/3rd-party/nrfx")
 set(CMSISPATH           "${PROJECT_SOURCE_DIR}/3rd-party/CMSIS_5/CMSIS")
@@ -100,6 +102,7 @@ add_subdirectory(api)
 add_subdirectory(src/crypto)
 add_subdirectory(src/rot)
 add_subdirectory(src/random)
+add_subdirectory(src/attest)
 
 # Add include dirs to executable
 target_include_directories(${EXECUTABLE_NAME}
@@ -116,6 +119,7 @@ target_include_directories(${EXECUTABLE_NAME}
     src/entry
     src/random
     src/rot
+    src/attest
     ${CMSISDEVPATH}
     ${CMSISPATH}/Core/Include
     ${NRFXPATH}
@@ -157,6 +161,7 @@ target_link_options(${EXECUTABLE_NAME}
 target_link_libraries(${EXECUTABLE_NAME}
     PUBLIC
     riot_tee_api
+    riot_tee_attest
     riot_tee_crypto
     riot_tee_rot
     riot_tee_random

@@ -28,6 +28,7 @@ extern "C" {
 #include "tee_hashes.h"
 #include "tee_random.h"
 #include "tee_ecc.h"
+#include "tee_attest.h"
 
 typedef CYS_error_t (*tee_operation_t)(io_pack_in_t *in, size_t in_len, io_pack_out_t *out, size_t out_len);
 
@@ -47,7 +48,8 @@ static const tee_operation_t tee_operation_table[] = {
     [TEE_PROT_ECC_P256_GENERATE]        = tee_prot_ecc_p256_generate,
     [TEE_PROT_ECC_P256_SIGN]            = tee_prot_ecc_p256_sign,
     [TEE_PROT_ECC_P256_SEAL]            = tee_prot_ecc_p256_seal,
-    [TEE_PROT_ECC_P256_DERIVE]          = tee_prot_ecc_p256_derive
+    [TEE_PROT_ECC_P256_DERIVE]          = tee_prot_ecc_p256_derive,
+    [TEE_ATTEST_GET_TOKEN]              = tee_attest_get_token
 };
 
 #define TEE_OPERATION_TABLE_SIZE (sizeof(tee_operation_table)/sizeof(tee_operation_t))

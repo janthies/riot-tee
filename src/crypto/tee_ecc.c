@@ -346,3 +346,20 @@ CYS_error_t tee_ecc_p256_verify_hash(io_pack_in_t *in, size_t in_len, io_pack_ou
     (void) out_len;
     return tee_internal_ecdsa_verify(CC3XX_EC_CURVE_SECP_256_R1, key, key_len, hash, hash_len, signature, signature_len);
 }
+
+/* Reuse the tested derive/sign paths for internal secure-world callers. */
+CYS_error_t tee_ecc_p256_derive_pubkey(const uint8_t *priv, size_t priv_len,
+                                       uint8_t *pub, size_t pub_size)
+{
+    return tee_internal_ecc_derive(CC3XX_EC_CURVE_SECP_256_R1,
+                                   (uint8_t *)priv, priv_len, pub, pub_size);
+}
+
+CYS_error_t tee_ecc_p256_sign_digest(const uint8_t *priv, size_t priv_len,
+                                     const uint8_t *hash, size_t hash_len,
+                                     uint8_t *sig)
+{
+    return tee_internal_ecdsa_sign(CC3XX_EC_CURVE_SECP_256_R1,
+                                   (uint8_t *)priv, priv_len,
+                                   (uint8_t *)hash, hash_len, sig);
+}

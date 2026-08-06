@@ -14,6 +14,8 @@
  *
  */
 
+#include <string.h>
+
 #include "CYS/common.h"
 #include "CYS/unprotected.h"
 
@@ -108,4 +110,32 @@ CYS_error_t tee_hash_sha256_finish(io_pack_in_t *in, size_t in_len, io_pack_out_
     NRF_CRYPTOCELL->ENABLE = 0;
 
     return CYS_SUCCESS;
+}
+
+/* Hash a possibly large region in chunks so it fits the DMA engine. */
+#define TEE_HASH_MAX_CHUNK  (0x4000)
+
+CYS_error_t tee_sha256(const uint8_t *data, size_t len, uint8_t *digest)
+{
+    uint32_t out[8];        /* 32 bytes, aligned for the DMA engine */
+
+    NRF_CRYPTOCELL->ENABLE = 1;
+
+    cc3xx_err_t status = cc3xx_lowlevel_hash_init(CC3XX_HASH_ALG_SHA256);
+    if (status == CC3XX_ERR_SUCCESS) {
+        while (len > 0 && status == CC3XX_ERR_SUCCESS) {
+            size_t chunk = (len < TEE_HASH_MAX_CHUNK) ? len : TEE_HASH_MAX_CHUNK;
+            status = cc3xx_lowlevel_hash_update(data, chunk);
+            data += chunk;
+            len -= chunk;
+        }
+        if (status == CC3XX_ERR_SUCCESS) {
+            cc3xx_lowlevel_hash_finish(out, sizeof(out));
+            memcpy(digest, out, sizeof(out));
+        }
+        cc3xx_lowlevel_hash_uninit();
+    }
+
+    NRF_CRYPTOCELL->ENABLE = 0;
+    return tee_map_error_values(status);
 }

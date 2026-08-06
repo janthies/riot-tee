@@ -28,6 +28,9 @@ CYS_error_t tee_hash_sha256_setup(io_pack_in_t *in, size_t in_len, io_pack_out_t
 CYS_error_t tee_hash_sha256_update(io_pack_in_t *in, size_t in_len, io_pack_out_t *out, size_t out_len);
 CYS_error_t tee_hash_sha256_finish(io_pack_in_t *in, size_t in_len, io_pack_out_t *out, size_t out_len);
 
+/* One-shot SHA-256 for internal secure-world callers (e.g. attestation). */
+CYS_error_t tee_sha256(const uint8_t *data, size_t len, uint8_t *digest);
+
 #ifdef __cplusplus
 }
 #endif

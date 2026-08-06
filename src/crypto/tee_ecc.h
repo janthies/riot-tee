@@ -45,6 +45,13 @@ CYS_error_t tee_ecc_p256_sign_hash(io_pack_in_t *in, size_t in_len, io_pack_out_
 
 CYS_error_t tee_ecc_p256_verify_hash(io_pack_in_t *in, size_t in_len, io_pack_out_t *out, size_t out_len);
 
+/* Public P-256 helpers for internal secure-world callers (e.g. attestation). */
+CYS_error_t tee_ecc_p256_derive_pubkey(const uint8_t *priv, size_t priv_len,
+                                       uint8_t *pub, size_t pub_size);
+CYS_error_t tee_ecc_p256_sign_digest(const uint8_t *priv, size_t priv_len,
+                                     const uint8_t *hash, size_t hash_len,
+                                     uint8_t *sig);
+
 #ifdef __cplusplus
 }
 #endif
