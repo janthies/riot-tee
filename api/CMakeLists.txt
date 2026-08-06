@@ -6,6 +6,7 @@ add_library(${LIBRARY_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/CYS_ecc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/CYS_hashes.c
     ${CMAKE_CURRENT_SOURCE_DIR}/CYS_random.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/CYS_attest.c
 )
 
 target_include_directories(${LIBRARY_NAME}
