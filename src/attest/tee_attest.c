@@ -19,6 +19,7 @@
  */
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "nanocbor/nanocbor.h"
 
@@ -30,6 +31,9 @@
 #include "tee_ecc.h"
 #include "tee_hashes.h"
 #include "tee_rot.h"
+
+#include "nrf9160.h"
+#include "nrf9160_bitfields.h"
 
 #include "tee_attest.h"
 
@@ -55,6 +59,7 @@ extern unsigned int FLASH_START_NS[];
 /* EAT claim keys (draft-tschofenig-rats-psa-token-24) */
 #define EAT_NONCE                   10
 #define EAT_UEID                    256
+#define EAT_DBGSTAT                 263
 #define EAT_PROFILE                 265
 #define EAT_CLIENT_ID               2394
 #define EAT_LIFECYCLE               2395
@@ -62,6 +67,10 @@ extern unsigned int FLASH_START_NS[];
 #define EAT_SW_COMPONENTS           2399
 #define SW_COMPONENT_TYPE           1
 #define SW_COMPONENT_MEASUREMENT    2
+
+/* dbgstat values (RFC 9711 section 4.2.9) */
+#define DBGSTAT_ENABLED             0
+#define DBGSTAT_DISABLED            1
 
 /* COSE_Sign1 */
 #define COSE_SIGN1_TAG              18
@@ -81,7 +90,7 @@ typedef struct {
 /* Encode the EAT claim set (the COSE payload). */
 static int encode_claims(uint8_t *buf, size_t buf_len,
                          const uint8_t *nonce, size_t nonce_len,
-                         const uint8_t *instance_id,
+                         const uint8_t *instance_id, int dbgstat,
                          const sw_component_t *components, size_t num_components,
                          size_t *out_len)
 {
@@ -89,13 +98,16 @@ static int encode_claims(uint8_t *buf, size_t buf_len,
 
     nanocbor_encoder_init(&enc, buf, buf_len);
 
-    nanocbor_fmt_map(&enc, 7);
+    nanocbor_fmt_map(&enc, 8);
 
     nanocbor_fmt_int(&enc, EAT_NONCE);
     nanocbor_put_bstr(&enc, nonce, nonce_len);
 
     nanocbor_fmt_int(&enc, EAT_UEID);
     nanocbor_put_bstr(&enc, instance_id, INSTANCE_ID_LEN);
+
+    nanocbor_fmt_int(&enc, EAT_DBGSTAT);
+    nanocbor_fmt_int(&enc, dbgstat);
 
     nanocbor_fmt_int(&enc, EAT_PROFILE);
     nanocbor_put_tstr(&enc, ATTEST_PROFILE);
@@ -258,6 +270,17 @@ static CYS_error_t collect_measurements(sw_component_t *comps, uint8_t *scratch,
     return CYS_SUCCESS;
 }
 
+/* Report the debug-port lock state as an RFC 9711 dbgstat value. APPROTECT and
+ * SECUREAPPROTECT gate debugger access; if either leaves it open, debug is
+ * effectively enabled. Read from the secure UICR alias. */
+static int debug_status(void)
+{
+    bool ns_open = (NRF_UICR_S->APPROTECT == UICR_APPROTECT_PALL_Unprotected);
+    bool s_open = (NRF_UICR_S->SECUREAPPROTECT == UICR_SECUREAPPROTECT_PALL_Unprotected);
+
+    return (ns_open || s_open) ? DBGSTAT_ENABLED : DBGSTAT_DISABLED;
+}
+
 CYS_error_t tee_attest_get_token(io_pack_in_t *in, size_t in_len,
                                  io_pack_out_t *out, size_t out_len)
 {
@@ -316,7 +339,8 @@ CYS_error_t tee_attest_get_token(io_pack_in_t *in, size_t in_len,
     uint8_t payload[CONFIG_PSA_ATTEST_TOKEN_MAX_SIZE];
     size_t payload_len;
     if (encode_claims(payload, sizeof(payload), nonce, nonce_len,
-                      instance_id, components, num_components, &payload_len) != 0) {
+                      instance_id, debug_status(), components, num_components,
+                      &payload_len) != 0) {
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
