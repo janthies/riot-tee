@@ -96,6 +96,14 @@ int main(void)
    NRF_SPU_S->PERIPHID[NRFX_PERIPHERAL_ID_GET(NRF_RTC0_NS)].PERM &= ~(SPU_FLASHREGION_PERM_SECATTR_Msk);
    NRF_SPU_S->PERIPHID[NRFX_PERIPHERAL_ID_GET(NRF_RTC1_NS)].PERM &= ~(SPU_FLASHREGION_PERM_SECATTR_Msk);
 
+   /* Route all peripheral interrupts to the non-secure world. The secure world
+      runs synchronously and uses no interrupts of its own; without this, NS
+      peripheral interrupts (e.g. UARTE0 RX / ENDRX) target secure and are never
+      serviced, so the peripheral works for polled TX but not interrupt-driven RX. */
+   for (int i = 0; i < 16; i++) {
+      NVIC->ITNS[i] = 0xFFFFFFFFul;
+   }
+
    /* Set GPIO P0 pin attributes to 0 (= non-secure) */
    NRF_SPU_S->GPIOPORT[0].PERM = 0x00000000ul;
 
