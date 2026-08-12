@@ -71,10 +71,18 @@ extern unsigned int FLASH_START_NS[];
 /* Implementation ID: identifies the hardware and firmware. Placeholder. */
 static const uint8_t _impl_id[32] = { 0 };
 
+/* One measured software component (an entry in the sw-components claim). */
+typedef struct {
+    const char *type;
+    const uint8_t *measurement;
+    size_t measurement_len;
+} sw_component_t;
+
 /* Encode the EAT claim set (the COSE payload). */
 static int encode_claims(uint8_t *buf, size_t buf_len,
                          const uint8_t *nonce, size_t nonce_len,
-                         const uint8_t *instance_id, const uint8_t *measurement,
+                         const uint8_t *instance_id,
+                         const sw_component_t *components, size_t num_components,
                          size_t *out_len)
 {
     nanocbor_encoder_t enc;
@@ -102,12 +110,15 @@ static int encode_claims(uint8_t *buf, size_t buf_len,
     nanocbor_put_bstr(&enc, _impl_id, sizeof(_impl_id));
 
     nanocbor_fmt_int(&enc, EAT_SW_COMPONENTS);
-    nanocbor_fmt_array(&enc, 1);
-    nanocbor_fmt_map(&enc, 2);
-    nanocbor_fmt_int(&enc, SW_COMPONENT_TYPE);
-    nanocbor_put_tstr(&enc, "firmware");
-    nanocbor_fmt_int(&enc, SW_COMPONENT_MEASUREMENT);
-    nanocbor_put_bstr(&enc, measurement, SHA256_LEN);
+    nanocbor_fmt_array(&enc, num_components);
+    for (size_t i = 0; i < num_components; i++) {
+        nanocbor_fmt_map(&enc, 2);
+        nanocbor_fmt_int(&enc, SW_COMPONENT_TYPE);
+        nanocbor_put_tstr(&enc, components[i].type);
+        nanocbor_fmt_int(&enc, SW_COMPONENT_MEASUREMENT);
+        nanocbor_put_bstr(&enc, components[i].measurement,
+                          components[i].measurement_len);
+    }
 
     size_t needed = nanocbor_encoded_len(&enc);
     if (needed > buf_len) {
@@ -198,6 +209,55 @@ static CYS_error_t sign_cose(const uint8_t *payload, size_t payload_len,
     return CYS_SUCCESS;
 }
 
+/* A measurement provider hashes one component. Providers run in the secure
+ * world, so the non-secure side cannot influence what is measured. */
+typedef struct {
+    const char *type;
+    CYS_error_t (*measure)(uint8_t *out, size_t out_size, size_t *out_len);
+} tee_attest_provider_t;
+
+/* Firmware provider: hash the whole non-secure flash image. */
+static CYS_error_t measure_firmware(uint8_t *out, size_t out_size,
+                                    size_t *out_len)
+{
+    if (out_size < SHA256_LEN) {
+        return CYS_ERROR_INVALID_ARGUMENT;
+    }
+    CYS_error_t status = tee_sha256((const uint8_t *)FLASH_START_NS,
+                                    FLASH_END - (uintptr_t)FLASH_START_NS, out);
+    if (status == CYS_SUCCESS) {
+        *out_len = SHA256_LEN;
+    }
+    return status;
+}
+
+static const tee_attest_provider_t _providers[] = {
+    { .type = "firmware", .measure = measure_firmware },
+};
+
+#define NUM_PROVIDERS   (sizeof(_providers) / sizeof(_providers[0]))
+
+/* Run every provider, filling one software component each. */
+static CYS_error_t collect_measurements(sw_component_t *comps, uint8_t *scratch,
+                                        size_t scratch_size, size_t *out_count)
+{
+    size_t used = 0;
+    for (size_t i = 0; i < NUM_PROVIDERS; i++) {
+        size_t len;
+        CYS_error_t status = _providers[i].measure(scratch + used,
+                                                   scratch_size - used, &len);
+        if (status != CYS_SUCCESS) {
+            return status;
+        }
+        comps[i].type = _providers[i].type;
+        comps[i].measurement = scratch + used;
+        comps[i].measurement_len = len;
+        used += len;
+    }
+    *out_count = NUM_PROVIDERS;
+    return CYS_SUCCESS;
+}
+
 CYS_error_t tee_attest_get_token(io_pack_in_t *in, size_t in_len,
                                  io_pack_out_t *out, size_t out_len)
 {
@@ -221,11 +281,12 @@ CYS_error_t tee_attest_get_token(io_pack_in_t *in, size_t in_len,
 
     size_t nonce_len = in[1].len;
 
-    /* 1. measure the non-secure firmware */
-    uint8_t measurement[SHA256_LEN];
-    CYS_error_t status = tee_sha256((const uint8_t *)FLASH_START_NS,
-                                    FLASH_END - (uintptr_t)FLASH_START_NS,
-                                    measurement);
+    /* 1. measure via the providers (firmware, ...) */
+    sw_component_t components[NUM_PROVIDERS];
+    uint8_t scratch[NUM_PROVIDERS * SHA256_LEN];
+    size_t num_components;
+    CYS_error_t status = collect_measurements(components, scratch,
+                                              sizeof(scratch), &num_components);
     if (status != CYS_SUCCESS) {
         return status;
     }
@@ -255,7 +316,7 @@ CYS_error_t tee_attest_get_token(io_pack_in_t *in, size_t in_len,
     uint8_t payload[CONFIG_PSA_ATTEST_TOKEN_MAX_SIZE];
     size_t payload_len;
     if (encode_claims(payload, sizeof(payload), nonce, nonce_len,
-                      instance_id, measurement, &payload_len) != 0) {
+                      instance_id, components, num_components, &payload_len) != 0) {
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
