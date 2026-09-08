@@ -112,8 +112,14 @@ CYS_error_t tee_hash_sha256_finish(io_pack_in_t *in, size_t in_len, io_pack_out_
     return CYS_SUCCESS;
 }
 
-/* Hash a possibly large region in chunks so it fits the DMA engine. */
-#define TEE_HASH_MAX_CHUNK  (0x4000)
+/* The CC310 DMA engine can not read from flash, only from RAM. Nordic states this
+ * in the CRYPTOCELL chapter of the nRF9160 product specification: data held in a
+ * memory that the DMA can not reach has to be copied into SRAM first. Inputs that
+ * may lie outside RAM, such as the non-secure firmware image, are therefore passed
+ * through a bounce buffer. The chunk size trades secure RAM against the number of
+ * DMA transfers. */
+#define TEE_HASH_MAX_CHUNK  (0x1000)
+static uint8_t _hash_bounce[TEE_HASH_MAX_CHUNK];
 
 CYS_error_t tee_sha256(const uint8_t *data, size_t len, uint8_t *digest)
 {
@@ -125,7 +131,8 @@ CYS_error_t tee_sha256(const uint8_t *data, size_t len, uint8_t *digest)
     if (status == CC3XX_ERR_SUCCESS) {
         while (len > 0 && status == CC3XX_ERR_SUCCESS) {
             size_t chunk = (len < TEE_HASH_MAX_CHUNK) ? len : TEE_HASH_MAX_CHUNK;
-            status = cc3xx_lowlevel_hash_update(data, chunk);
+            memcpy(_hash_bounce, data, chunk);
+            status = cc3xx_lowlevel_hash_update(_hash_bounce, chunk);
             data += chunk;
             len -= chunk;
         }
