@@ -97,6 +97,13 @@ typedef struct {
     size_t measurement_len;
 } sw_component_t;
 
+/* The PSA profile allows exactly these challenge lengths (RFC 9783
+ * section 4.1.1). */
+static bool nonce_len_allowed(size_t len)
+{
+    return (len == 32 || len == 48 || len == 64);
+}
+
 /* Encode the EAT claim set (the COSE payload). */
 static int encode_claims(uint8_t *buf, size_t buf_len,
                          const uint8_t *nonce, size_t nonce_len,
@@ -315,6 +322,11 @@ CYS_error_t tee_attest_get_token(io_pack_in_t *in, size_t in_len,
     }
 
     size_t nonce_len = in[1].len;
+
+    /* the secure world does not rely on the caller having checked this */
+    if (!nonce_len_allowed(nonce_len)) {
+        return CYS_ERROR_INVALID_ARGUMENT;
+    }
 
     /* 1. measure via the providers (firmware, ...) */
     sw_component_t components[NUM_PROVIDERS];
