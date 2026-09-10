@@ -52,11 +52,14 @@ extern unsigned int FLASH_START_NS[];
 #endif
 
 /* Device claims. Placeholders, matching the software backend. */
-#define ATTEST_PROFILE              "http://arm.com/psa/2.0.0"
+
+/* A profile derived from the PSA baseline, as RFC 9783 section 4.5.2.1
+ * describes. Not TF-M, so it does not claim the TF-M identifier. */
+#define ATTEST_PROFILE              "tag:psacertified.org,2023:psa#riot-tee"
 #define ATTEST_CLIENT_ID            (1)
 #define ATTEST_LIFECYCLE            (0x3000u)        /* SECURED */
 
-/* EAT claim keys (draft-tschofenig-rats-psa-token-24) */
+/* EAT claim keys (RFC 9711 and RFC 9783) */
 #define EAT_NONCE                   10
 #define EAT_UEID                    256
 #define EAT_DBGSTAT                 263
