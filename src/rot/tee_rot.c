@@ -56,6 +56,12 @@ CYS_error_t tee_rot_decrypt_key_ocb(CYS_PROT_ecc_p256_key_t *sealed_key, uint8_t
     /* The hardware driver ignores the cipher context, so no need to initialize */
     int32_t result = cipher_decrypt_ocb(&cipher, NULL, 0, CYS_PROT_SEAL_TAG_SIZE, sealed_key->nonce, CYS_PROT_SEAL_NONCE_SIZE, sealed_key->private_key, CYS_PROT_ECC_P256_KEY_SIZE+CYS_PROT_SEAL_TAG_SIZE, key_out);
 
+    /* A blob that does not authenticate did not come from this device. Without
+     * this check the caller would work on whatever the decryption left behind. */
+    if (result != CYS_PROT_ECC_P256_KEY_SIZE) {
+        return CYS_ERROR_CORRUPTION_DETECTED;
+    }
+
     return CYS_SUCCESS;
 }
 
