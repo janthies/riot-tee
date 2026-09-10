@@ -72,6 +72,7 @@ extern unsigned int FLASH_START_NS[];
 #define EAT_SW_COMPONENTS           2399
 #define SW_COMPONENT_TYPE           1
 #define SW_COMPONENT_MEASUREMENT    2
+#define SW_COMPONENT_SIGNER_ID      5
 
 /* dbgstat values (RFC 9711 section 4.2.9) */
 #define DBGSTAT_ENABLED             0
@@ -84,6 +85,10 @@ extern unsigned int FLASH_START_NS[];
 
 /* Implementation ID: identifies the hardware and firmware. Placeholder. */
 static const uint8_t _impl_id[32] = { 0 };
+
+/* Signer ID: identifies who signed a component. Nothing here is delivered
+ * through a signed manifest, so this is a placeholder. */
+static const uint8_t _signer_id[32] = { 0 };
 
 /* One measured software component (an entry in the sw-components claim). */
 typedef struct {
@@ -129,12 +134,14 @@ static int encode_claims(uint8_t *buf, size_t buf_len,
     nanocbor_fmt_int(&enc, EAT_SW_COMPONENTS);
     nanocbor_fmt_array(&enc, num_components);
     for (size_t i = 0; i < num_components; i++) {
-        nanocbor_fmt_map(&enc, 2);
+        nanocbor_fmt_map(&enc, 3);
         nanocbor_fmt_int(&enc, SW_COMPONENT_TYPE);
         nanocbor_put_tstr(&enc, components[i].type);
         nanocbor_fmt_int(&enc, SW_COMPONENT_MEASUREMENT);
         nanocbor_put_bstr(&enc, components[i].measurement,
                           components[i].measurement_len);
+        nanocbor_fmt_int(&enc, SW_COMPONENT_SIGNER_ID);
+        nanocbor_put_bstr(&enc, _signer_id, sizeof(_signer_id));
     }
 
     size_t needed = nanocbor_encoded_len(&enc);
