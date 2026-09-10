@@ -33,13 +33,17 @@ CYS_error_t tee_rot_try_generate_aes_key(void)
     return CYS_ERROR_GENERIC_ERROR;
 }
 
-CYS_error_t tee_rot_encrypt_key_ocb(uint8_t *key_in, CYS_PROT_ecc_p256_key_t *sealed_key)
+/* The purpose travels as associated data. OCB authenticates it without storing
+ * it, so unsealing only succeeds when the caller names the same purpose the key
+ * was sealed for. */
+CYS_error_t tee_rot_encrypt_key_ocb(CYS_PROT_purpose_t purpose, uint8_t *key_in, CYS_PROT_ecc_p256_key_t *sealed_key)
 {
     cipher_t cipher = { 0 };
     cipher.interface = CIPHER_AES;
+    uint8_t aad = (uint8_t)purpose;
 
     /* The hardware driver ignores the cipher context, so no need to initialize */
-    int32_t result = cipher_encrypt_ocb(&cipher, NULL, 0, CYS_PROT_SEAL_TAG_SIZE, sealed_key->nonce, CYS_PROT_SEAL_NONCE_SIZE, key_in, CYS_PROT_ECC_P256_KEY_SIZE, sealed_key->private_key);
+    int32_t result = cipher_encrypt_ocb(&cipher, &aad, sizeof(aad), CYS_PROT_SEAL_TAG_SIZE, sealed_key->nonce, CYS_PROT_SEAL_NONCE_SIZE, key_in, CYS_PROT_ECC_P256_KEY_SIZE, sealed_key->private_key);
 
     if(result == CYS_PROT_ECC_P256_KEY_SIZE + CYS_PROT_SEAL_TAG_SIZE) {
         return CYS_SUCCESS;
@@ -48,16 +52,18 @@ CYS_error_t tee_rot_encrypt_key_ocb(uint8_t *key_in, CYS_PROT_ecc_p256_key_t *se
     return CYS_ERROR_GENERIC_ERROR;
 }
 
-CYS_error_t tee_rot_decrypt_key_ocb(CYS_PROT_ecc_p256_key_t *sealed_key, uint8_t *key_out)
+CYS_error_t tee_rot_decrypt_key_ocb(CYS_PROT_purpose_t purpose, CYS_PROT_ecc_p256_key_t *sealed_key, uint8_t *key_out)
 {
     cipher_t cipher = { 0 };
     cipher.interface = CIPHER_AES;
+    uint8_t aad = (uint8_t)purpose;
 
     /* The hardware driver ignores the cipher context, so no need to initialize */
-    int32_t result = cipher_decrypt_ocb(&cipher, NULL, 0, CYS_PROT_SEAL_TAG_SIZE, sealed_key->nonce, CYS_PROT_SEAL_NONCE_SIZE, sealed_key->private_key, CYS_PROT_ECC_P256_KEY_SIZE+CYS_PROT_SEAL_TAG_SIZE, key_out);
+    int32_t result = cipher_decrypt_ocb(&cipher, &aad, sizeof(aad), CYS_PROT_SEAL_TAG_SIZE, sealed_key->nonce, CYS_PROT_SEAL_NONCE_SIZE, sealed_key->private_key, CYS_PROT_ECC_P256_KEY_SIZE+CYS_PROT_SEAL_TAG_SIZE, key_out);
 
-    /* A blob that does not authenticate did not come from this device. Without
-     * this check the caller would work on whatever the decryption left behind. */
+    /* A blob that does not authenticate did not come from this device, or was
+     * sealed for another purpose. Without this check the caller would work on
+     * whatever the decryption left behind. */
     if (result != CYS_PROT_ECC_P256_KEY_SIZE) {
         return CYS_ERROR_CORRUPTION_DETECTED;
     }

@@ -70,7 +70,14 @@ exit:
 /* Sealed Key Operations */
 CYS_error_t tee_prot_ecc_p256_generate(io_pack_in_t *in, size_t in_len, io_pack_out_t *out, size_t out_len)
 {
-    if (out_len != 2) {
+    if (in_len != 1 || out_len != 2) {
+        return CYS_ERROR_INVALID_ARGUMENT;
+    }
+
+    CYS_PROT_purpose_t *purpose =
+        cmse_check_address_range((void *)in[0].data, in[0].len, CMSE_NONSECURE);
+
+    if (purpose == NULL || in[0].len != sizeof(CYS_PROT_purpose_t)) {
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
@@ -102,20 +109,26 @@ CYS_error_t tee_prot_ecc_p256_generate(io_pack_in_t *in, size_t in_len, io_pack_
         return status;
     }
 
-    return tee_rot_encrypt_key_ocb((uint8_t *)priv_tmp, sealed_key);
+    return tee_rot_encrypt_key_ocb(*purpose, (uint8_t *)priv_tmp, sealed_key);
 }
 
 CYS_error_t tee_prot_ecc_p256_seal(io_pack_in_t *in, size_t in_len, io_pack_out_t *out, size_t out_len)
 {
-    if (in_len != 1 || out_len != 1) {
+    if (in_len != 2 || out_len != 1) {
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
-    uint8_t *priv_key = cmse_check_address_range((void *)in[0].data, in[0].len, CMSE_NONSECURE);
+    CYS_PROT_purpose_t *purpose =
+        cmse_check_address_range((void *)in[0].data, in[0].len, CMSE_NONSECURE);
+    uint8_t *priv_key = cmse_check_address_range((void *)in[1].data, in[1].len, CMSE_NONSECURE);
     CYS_PROT_ecc_p256_key_t *sealed_key = cmse_check_address_range(out[0].data, out[0].len, CMSE_NONSECURE);
 
-    if (priv_key == NULL || sealed_key == NULL) {
+    if (purpose == NULL || priv_key == NULL || sealed_key == NULL) {
         return CYS_ERROR_CORRUPTION_DETECTED;
+    }
+
+    if (in[0].len != sizeof(CYS_PROT_purpose_t)) {
+        return CYS_ERROR_INVALID_ARGUMENT;
     }
 
     CYS_error_t status = tee_internal_generate_random_bytes(sealed_key->nonce, sizeof(sealed_key->nonce));
@@ -123,7 +136,7 @@ CYS_error_t tee_prot_ecc_p256_seal(io_pack_in_t *in, size_t in_len, io_pack_out_
         return status;
     }
 
-    return tee_rot_encrypt_key_ocb(priv_key, sealed_key);
+    return tee_rot_encrypt_key_ocb(*purpose, priv_key, sealed_key);
 }
 
 CYS_error_t tee_prot_ecc_p256_derive(io_pack_in_t *in, size_t in_len, io_pack_out_t *out, size_t out_len)
@@ -141,7 +154,7 @@ CYS_error_t tee_prot_ecc_p256_derive(io_pack_in_t *in, size_t in_len, io_pack_ou
 
     size_t pubkey_size = out[1].len;
     uint8_t key_clear[TEE_ECC_P256_PRIV_KEY_SIZE];
-    CYS_error_t status = tee_rot_decrypt_key_ocb(key, key_clear);
+    CYS_error_t status = tee_rot_decrypt_key_ocb(CYS_PROT_PURPOSE_GENERAL, key, key_clear);
     if (status != CYS_SUCCESS) {
         return status;
     }
@@ -204,7 +217,7 @@ CYS_error_t tee_prot_ecc_p256_sign(io_pack_in_t *in, size_t in_len, io_pack_out_
 
     uint8_t key_clear[TEE_ECC_P256_PRIV_KEY_SIZE];
 
-    CYS_error_t status = tee_rot_decrypt_key_ocb(key, key_clear);
+    CYS_error_t status = tee_rot_decrypt_key_ocb(CYS_PROT_PURPOSE_GENERAL, key, key_clear);
     if (status != CYS_SUCCESS) {
         return status;
     }

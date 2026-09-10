@@ -6,8 +6,12 @@
 #include "tee_operations.h"
 
 /* Sealed Key Operations */
-CYS_error_t CYS_PROT_ecc_p256_generate(CYS_PROT_ecc_p256_key_t *sealed_key, uint8_t *public_key)
+CYS_error_t CYS_PROT_ecc_p256_generate(CYS_PROT_purpose_t purpose, CYS_PROT_ecc_p256_key_t *sealed_key, uint8_t *public_key)
 {
+    io_pack_in_t in[1] = {
+        { .data = &purpose, .len = sizeof(purpose) }
+    };
+
     io_pack_out_t out[2] = {
         { .data = sealed_key, .len = sizeof(CYS_PROT_ecc_p256_key_t) },
         { .data = public_key, .len = CYS_PROT_ECC_P256_PUB_SIZE }
@@ -15,20 +19,21 @@ CYS_error_t CYS_PROT_ecc_p256_generate(CYS_PROT_ecc_p256_key_t *sealed_key, uint
 
     io_operation_info_t info = {
         .operation = TEE_PROT_ECC_P256_GENERATE,
-        .in_len = 0,
+        .in_len = sizeof(in)/sizeof(io_pack_in_t),
         .out_len = sizeof(out)/sizeof(io_pack_out_t)
     };
 
     while (os_get_mutex() != CYS_SUCCESS) {};
-    CYS_error_t status = tee_secure_entry(&info, NULL, out);
+    CYS_error_t status = tee_secure_entry(&info, in, out);
     os_release_mutex();
 
     return status;
 }
 
-CYS_error_t CYS_PROT_ecc_p256_seal(const uint8_t *unsealed_key, CYS_PROT_ecc_p256_key_t *sealed_key)
+CYS_error_t CYS_PROT_ecc_p256_seal(CYS_PROT_purpose_t purpose, const uint8_t *unsealed_key, CYS_PROT_ecc_p256_key_t *sealed_key)
 {
-    io_pack_in_t in[1] = {
+    io_pack_in_t in[2] = {
+        { .data = &purpose, .len = sizeof(purpose) },
         { .data = unsealed_key, .len = CYS_ECC_P256_KEY_SIZE }
     };
 

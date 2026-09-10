@@ -340,7 +340,7 @@ CYS_error_t tee_attest_get_token(io_pack_in_t *in, size_t in_len,
 
     /* 2. unseal the attestation key and derive its public key */
     uint8_t priv[CYS_PROT_ECC_P256_KEY_SIZE];
-    status = tee_rot_decrypt_key_ocb(sealed, priv);
+    status = tee_rot_decrypt_key_ocb(CYS_PROT_PURPOSE_ATTEST, sealed, priv);
     if (status != CYS_SUCCESS) {
         return status;
     }

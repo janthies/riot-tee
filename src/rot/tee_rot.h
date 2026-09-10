@@ -58,7 +58,7 @@ CYS_error_t tee_rot_try_generate_aes_key(void);
  * @param   cipher_out
  * @return  CYS_error_t
  */
-CYS_error_t tee_rot_encrypt_key_ocb(uint8_t *key_in, CYS_PROT_ecc_p256_key_t *sealed_key);
+CYS_error_t tee_rot_encrypt_key_ocb(CYS_PROT_purpose_t purpose, uint8_t *key_in, CYS_PROT_ecc_p256_key_t *sealed_key);
 
 /**
  * @brief   Decrypt a key with the RoT ECC P256 key
@@ -67,7 +67,7 @@ CYS_error_t tee_rot_encrypt_key_ocb(uint8_t *key_in, CYS_PROT_ecc_p256_key_t *se
  * @param   key_out
  * @return  CYS_error_t
  */
-CYS_error_t tee_rot_decrypt_key_ocb(CYS_PROT_ecc_p256_key_t *sealed_key, uint8_t *key_out);
+CYS_error_t tee_rot_decrypt_key_ocb(CYS_PROT_purpose_t purpose, CYS_PROT_ecc_p256_key_t *sealed_key, uint8_t *key_out);
 /**
  * @brief   Sign some data with the RoT ECC P256 key
  *
