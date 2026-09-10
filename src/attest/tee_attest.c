@@ -56,7 +56,9 @@ extern unsigned int FLASH_START_NS[];
 /* A profile derived from the PSA baseline, as RFC 9783 section 4.5.2.1
  * describes. Not TF-M, so it does not claim the TF-M identifier. */
 #define ATTEST_PROFILE              "tag:psacertified.org,2023:psa#riot-tee"
-#define ATTEST_CLIENT_ID            (1)
+/* Negative values denote a caller from the non-secure world, positive ones
+ * a caller from the secure world (RFC 9783 section 4.1.2). */
+#define ATTEST_CLIENT_ID            (-1)
 #define ATTEST_LIFECYCLE            (0x3000u)        /* SECURED */
 
 /* EAT claim keys (RFC 9711 and RFC 9783) */
