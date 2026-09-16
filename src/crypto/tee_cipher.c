@@ -36,9 +36,9 @@ CYS_error_t tee_cipher_aes_128_ecb_encrypt(io_pack_in_t *in, size_t in_len, io_p
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
-    void *ns_key = cmse_check_address_range((void *)in[0].data, in[0].len, CMSE_NONSECURE);
-    uint8_t *plain = cmse_check_address_range((void *)in[1].data, in[1].len, CMSE_NONSECURE);
-    uint8_t *cipher = cmse_check_address_range(out[0].data, out[0].len, CMSE_NONSECURE);
+    void *ns_key = tee_check_ns_range((void *)in[0].data, in[0].len);
+    uint8_t *plain = tee_check_ns_range((void *)in[1].data, in[1].len);
+    uint8_t *cipher = tee_check_ns_range(out[0].data, out[0].len);
 
     if (plain == NULL || cipher == NULL || ns_key == NULL) {
         return CYS_ERROR_CORRUPTION_DETECTED;
@@ -61,9 +61,9 @@ CYS_error_t tee_cipher_aes_128_ecb_decrypt(io_pack_in_t *in, size_t in_len, io_p
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
-    void *ns_key = cmse_check_address_range((void *)in[0].data, in[0].len, CMSE_NONSECURE);
-    uint8_t *cipher = cmse_check_address_range((void *)in[1].data, in[1].len, CMSE_NONSECURE);
-    uint8_t *plain = cmse_check_address_range(out[0].data, out[0].len, CMSE_NONSECURE);
+    void *ns_key = tee_check_ns_range((void *)in[0].data, in[0].len);
+    uint8_t *cipher = tee_check_ns_range((void *)in[1].data, in[1].len);
+    uint8_t *plain = tee_check_ns_range(out[0].data, out[0].len);
 
     if (cipher == NULL || plain == NULL || ns_key == NULL) {
         return CYS_ERROR_CORRUPTION_DETECTED;
@@ -86,10 +86,10 @@ CYS_error_t tee_cipher_aes_128_cbc_encrypt(io_pack_in_t *in, size_t in_len, io_p
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
-    void *ns_key = cmse_check_address_range((void *)in[0].data, in[0].len, CMSE_NONSECURE);
-    void *ns_iv = cmse_check_address_range((void *)in[1].data, in[1].len, CMSE_NONSECURE);
-    uint8_t *plain = cmse_check_address_range((void *)in[2].data, in[2].len, CMSE_NONSECURE);
-    uint8_t *cipher = cmse_check_address_range(out[0].data, out[0].len, CMSE_NONSECURE);
+    void *ns_key = tee_check_ns_range((void *)in[0].data, in[0].len);
+    void *ns_iv = tee_check_ns_range((void *)in[1].data, in[1].len);
+    uint8_t *plain = tee_check_ns_range((void *)in[2].data, in[2].len);
+    uint8_t *cipher = tee_check_ns_range(out[0].data, out[0].len);
 
     if (plain == NULL || cipher == NULL || ns_key == NULL || ns_iv == NULL) {
         return CYS_ERROR_CORRUPTION_DETECTED;
@@ -116,10 +116,10 @@ CYS_error_t tee_cipher_aes_128_cbc_decrypt(io_pack_in_t *in, size_t in_len, io_p
         return CYS_ERROR_INVALID_ARGUMENT;
     }
 
-    void *ns_key = cmse_check_address_range((void *)in[0].data, in[0].len, CMSE_NONSECURE);
-    void *ns_iv = cmse_check_address_range((void *)in[1].data, in[1].len, CMSE_NONSECURE);
-    uint8_t *cipher = cmse_check_address_range((void *)in[2].data, in[2].len, CMSE_NONSECURE);
-    uint8_t *plain = cmse_check_address_range(out[0].data, out[0].len, CMSE_NONSECURE);
+    void *ns_key = tee_check_ns_range((void *)in[0].data, in[0].len);
+    void *ns_iv = tee_check_ns_range((void *)in[1].data, in[1].len);
+    uint8_t *cipher = tee_check_ns_range((void *)in[2].data, in[2].len);
+    uint8_t *plain = tee_check_ns_range(out[0].data, out[0].len);
 
     if (cipher == NULL || plain == NULL || ns_key == NULL || ns_iv == NULL) {
         return CYS_ERROR_CORRUPTION_DETECTED;
